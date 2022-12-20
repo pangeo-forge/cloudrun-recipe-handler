@@ -20,5 +20,5 @@ $ curl \
   -X POST \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   $SERVICE_URL \
-  -d $PAYLOAD_JSON
+  --json $PAYLOAD_JSON
 ```

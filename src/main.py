@@ -1,9 +1,13 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, status
+from pydantic import BaseModel
 
 app = FastAPI()
 
+
+class Payload(BaseModel):
+    name: str
+
+
 @app.post("/", status_code=status.HTTP_202_ACCEPTED)
-async def hello_world(request: Request):
-    payload = await request.json()
-    name = payload["name"]
-    return "Hello {}!".format(name)
+async def main(payload: Payload):
+    return "Hello {}!".format(payload.name)
