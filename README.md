@@ -22,3 +22,13 @@ $ curl \
   $SERVICE_URL \
   --json $PAYLOAD_JSON
 ```
+or
+
+```console
+$ curl \
+  -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  -H "Content-Type: application/json" \
+  $SERVICE_URL \
+  -d $PAYLOAD_JSON
+```
