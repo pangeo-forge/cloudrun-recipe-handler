@@ -1,5 +1,7 @@
 import json
+import logging
 import subprocess
+import sys
 import tempfile
 from typing import List, Optional
 
@@ -8,6 +10,11 @@ from pydantic import BaseModel, Field
 
 app = FastAPI()
 
+log = logging.getLogger()
+handler = logging.StreamHandler(stream=sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+log.setLevel(logging.DEBUG)
+log.addHandler(handler)
 
 class PangeoForgeRunner(BaseModel):
     cmd: List[str] = Field(
@@ -116,22 +123,30 @@ def conda_list_json(env_name):
 
 @app.post("/", status_code=status.HTTP_202_ACCEPTED, response_model=Response)
 async def main(payload: Payload):
+    log.info(f"Received {payload = }")
     response = {}
     if payload.install:
+        log.info(f"Extra installs requested...")
+        before = conda_list_json(payload.install.env)
+        log.debug(f"{payload.install.env = }; {before = }")
         response |= {
-            "install_result": {"before": conda_list_json(payload.install.env)}
+            "install_result": {"before": before}
         }
         cmd = (
             f"mamba run -n {payload.install.env} pip install -U".split()
             + payload.install.pkgs
         )
+        log.debug(f"Running {cmd = }")
         proc = subprocess.run(cmd, capture_output=True, text=True)
         if proc.returncode != 0:
             # our installations failed, so record the error and bail early
+            log.error(f"Installs failed with {proc.stderr = }")
             response["install_result"] |= {"stderr": proc.stderr}
             return response
         # our installations succeeded! so record the altered env and move on
-        response["install_result"] |= {"after": conda_list_json(payload.install.env)}
+        after = conda_list_json(payload.install.env)
+        log.debug(f"{payload.install.env = }; {after = }")
+        response["install_result"] |= {"after": after}
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(payload.pangeo_forge_runner.config, f)
@@ -141,5 +156,8 @@ async def main(payload: Payload):
             + payload.pangeo_forge_runner.cmd
             + [f"-f={f.name}"]
         )
-    
-    return response | {"pangeo_forge_runner_result": pangeo_forge_runner_result}
+
+    log.info("Sending response...")
+    response |= {"pangeo_forge_runner_result": pangeo_forge_runner_result}
+    log.debug(f"{response = }")    
+    return response
