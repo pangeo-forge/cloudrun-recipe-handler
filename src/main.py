@@ -16,6 +16,7 @@ handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
 log.setLevel(logging.DEBUG)
 log.addHandler(handler)
 
+
 class PangeoForgeRunner(BaseModel):
     cmd: List[str] = Field(
         ...,
@@ -69,20 +70,49 @@ class Payload(BaseModel):
     )
 
 
-class InstallResult(BaseModel):
-    before: List[dict] = Field(
+class Package(BaseModel):
+    name: str = Field(..., description="The name of this package.")
+    version: str = Field(..., description="The current version of this package.")
+
+
+class AddedPackage(Package):
+    pass
+
+
+class ChangedPackage(Package):
+    prior_version: str = Field(
         ...,
         description="""
-        The result of calling `conda list --json` before any additional
-        dependencies are resolved via pip.
+        The version of this package prior to being changed by an install request.
         """
     )
-    after: Optional[List[dict]] = Field(
+
+
+class CondaDiff(BaseModel):
+    added: Optional[List[AddedPackage]] = Field(
         None,
-        description=""""
-        The result of `conda list --json` after additional dependencies are installed
-        via pip. Optional because if the call to `pip install` fails, this is not
-        included in the response.
+        description="""
+        Packages added by the install request, which were not present in the
+        base image. Optional because the request might only ask to change package
+        versions, and not add any new packages.
+        """
+    )
+    changed: Optional[List[ChangedPackage]] = Field(
+        None,
+        description="""
+        Packages whose versions have been changed as a result of the install request.
+        Optional because the request may only ask to add new packages, and not change
+        the versions of any existing packages.
+        """
+    )
+
+
+class InstallResult(BaseModel):
+    diff: Optional[CondaDiff] = Field(
+        None,
+        description="""
+        A record of changes made to the environment by the install request. Optional
+        because the request may raise an error and not complete.
         """
     )
     stderr: Optional[str] = Field(
@@ -115,10 +145,11 @@ class Response(BaseModel):
     )
 
 
-def conda_list_json(env_name):
-    return json.loads(
+def conda_list_json(env_name: str) -> dict:
+    verbose_listing = json.loads(
         subprocess.check_output(f"conda list -n {env_name} --json".split())
     )
+    return {p["name"]: p["version"] for p in verbose_listing}
 
 
 @app.post("/", status_code=status.HTTP_202_ACCEPTED, response_model=Response)
@@ -128,10 +159,6 @@ async def main(payload: Payload):
     if payload.install:
         log.info(f"Extra installs requested...")
         before = conda_list_json(payload.install.env)
-        log.debug(f"{payload.install.env = }; {before = }")
-        response |= {
-            "install_result": {"before": before}
-        }
         cmd = (
             f"mamba run -n {payload.install.env} pip install -U".split()
             + payload.install.pkgs
@@ -141,12 +168,24 @@ async def main(payload: Payload):
         if proc.returncode != 0:
             # our installations failed, so record the error and bail early
             log.error(f"Installs failed with {proc.stderr = }")
-            response["install_result"] |= {"stderr": proc.stderr}
+            response["install_result"] = {"stderr": proc.stderr}
             return response
         # our installations succeeded! so record the altered env and move on
         after = conda_list_json(payload.install.env)
-        log.debug(f"{payload.install.env = }; {after = }")
-        response["install_result"] |= {"after": after}
+        diff = dict(
+            added=[
+                {"name": name, "version": version}
+                for name, version in after.items()
+                if name not in before
+            ],
+            changed=[
+                {"name": name, "version": new_version, "prior_version": before[name]}
+                for name, new_version in after.items()
+                if new_version != before[name]
+            ],
+        )
+        log.debug(f"{payload.install.env = }; {diff = }")
+        response["install_result"] = {"diff": diff}
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(payload.pangeo_forge_runner.config, f)
