@@ -24,7 +24,7 @@ class PangeoForgeRunner(BaseModel):
         Command to pass to the `pangeo-forge-runner` CLI. The command should be valid
         for the version of `pangeo-forge-runner` known to exist in the container.
         (This can be overided via the `install` field of the request Payload.)
-        """
+        """,
     )
     config: dict = Field(
         default_factory=dict,
@@ -33,7 +33,7 @@ class PangeoForgeRunner(BaseModel):
         docs for spec. Fields given here can be alternatively be passed as CLI options,
         but separating `cmd` and `config` fields may provide a useful cognitive distinction:
         the former typically varys more per-job than does the latter.
-        """
+        """,
     )
 
 
@@ -44,13 +44,13 @@ class Install(BaseModel):
         A list of extra dependencies to install prior to calling `pangeo-forge-runner`.
         (Can include `pangeo-forge-runner` itself!) List members can be strings of any
         format recognized as valid arguments to `pip install`.
-        """
+        """,
     )
     env: str = Field(
         "notebook",
         description="""
         The name of the conda environment in which to pip install the `pkgs` list.
-        """
+        """,
     )
 
 
@@ -59,14 +59,14 @@ class Payload(BaseModel):
         ...,
         description="""
         A command and config for `pangeo-forge-runner`.
-        """
-    ) 
+        """,
+    )
     install: Optional[Install] = Field(
         None,
         description="""
         Optionally, use this field to pass a list of extra dependencies to install
         prior to calling `pangeo-forge-runner`.
-        """
+        """,
     )
 
 
@@ -84,7 +84,7 @@ class ChangedPackage(Package):
         ...,
         description="""
         The version of this package prior to being changed by an install request.
-        """
+        """,
     )
 
 
@@ -95,7 +95,7 @@ class CondaDiff(BaseModel):
         Packages added by the install request, which were not present in the
         base image. Optional because the request might only ask to change package
         versions, and not add any new packages.
-        """
+        """,
     )
     changed: Optional[List[ChangedPackage]] = Field(
         None,
@@ -103,7 +103,7 @@ class CondaDiff(BaseModel):
         Packages whose versions have been changed as a result of the install request.
         Optional because the request may only ask to add new packages, and not change
         the versions of any existing packages.
-        """
+        """,
     )
 
 
@@ -113,14 +113,14 @@ class InstallResult(BaseModel):
         description="""
         A record of changes made to the environment by the install request. Optional
         because the request may raise an error and not complete.
-        """
+        """,
     )
     stderr: Optional[str] = Field(
         None,
         description="""
         If the call to `pip install` fails, this field relays the Traceback.
         Optional because if the `pip install` succeeds, this is left empty.
-        """
+        """,
     )
 
 
@@ -130,8 +130,8 @@ class Response(BaseModel):
         description="""
         If an `install` array is passed as part of the request Payload, the results
         of resolving those dependencies is relayed back to the invoker here. Optional
-        because if no `install` array is given in the request, this is left empty. 
-        """
+        because if no `install` array is given in the request, this is left empty.
+        """,
     )
     pangeo_forge_runner_result: Optional[str] = Field(
         None,
@@ -141,7 +141,7 @@ class Response(BaseModel):
         in the request, and there is an error attempting to resolve those additional
         dependencies, then we never make it to calling `pangeo-forge-runner`, and this
         field would be left empty in the response.
-        """
+        """,
     )
 
 
@@ -157,7 +157,7 @@ async def main(payload: Payload):
     log.info(f"Received {payload = }")
     response = {}
     if payload.install:
-        log.info(f"Extra installs requested...")
+        log.info("Extra installs requested...")
         before = conda_list_json(payload.install.env)
         cmd = (
             f"mamba run -n {payload.install.env} pip install -U".split()
@@ -191,12 +191,10 @@ async def main(payload: Payload):
         json.dump(payload.pangeo_forge_runner.config, f)
         f.flush()
         pangeo_forge_runner_result = subprocess.check_output(
-            ["pangeo-forge-runner"]
-            + payload.pangeo_forge_runner.cmd
-            + [f"-f={f.name}"]
+            ["pangeo-forge-runner"] + payload.pangeo_forge_runner.cmd + [f"-f={f.name}"]
         )
 
     log.info("Sending response...")
     response |= {"pangeo_forge_runner_result": pangeo_forge_runner_result}
-    log.debug(f"{response = }")    
+    log.debug(f"{response = }")
     return response
