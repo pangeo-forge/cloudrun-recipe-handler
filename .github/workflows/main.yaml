@@ -24,8 +24,8 @@ jobs:
       - name: install dependencies
         run: |
           mamba run -n cloudrun pip install -r ./src/requirements.txt
-          && mamba run -n cloudrun pip install -r dev-requirements.txt
-          && mamba run -n cloudrun pip install "pangeo-forge-runner==0.7.1"
+          mamba run -n cloudrun pip install -r dev-requirements.txt
+          mamba run -n cloudrun pip install "pangeo-forge-runner==0.7.1"
       - name: list conda env
         run: |
           conda info
