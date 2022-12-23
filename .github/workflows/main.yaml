@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+          activate-environment: cloudrun
+          use-mamba: true
+      - name: install dependencies
+        run: |
+          mamba run -n cloudrun pip install -r src/requirements.txt
+          && mamba run -n cloudrun pip install -r dev-requirements.txt
+          && mamba run -n cloudrun pip install "pangeo-forge-runner==0.7.1"
+      - name: list conda env
+        run: |
+          conda info
+          conda list
+      - name: run tests
+          pytest src/tests
+  
