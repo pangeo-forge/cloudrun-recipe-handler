@@ -38,6 +38,13 @@ def setup_teardown():
             None,
         ),
         (
+            ["--help"],
+            # test adding a pkg not in the base env
+            ["black==22.12.0"],
+            {"added": [{"name": "black", "version": "22.12.0"}], "changed": []},
+            None,
+        ),
+        (
             ["bake", "--unsupported-arg"],
             [STARTING_VERSION],
             {"added": [], "changed": []},

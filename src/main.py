@@ -6,7 +6,7 @@ import tempfile
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 app = FastAPI()
 
@@ -52,6 +52,15 @@ class Install(BaseModel):
         The name of the conda environment in which to pip install the `pkgs` list.
         """,
     )
+
+    @validator("env")
+    def env_must_exist(cls, v):
+        envs = json.loads(subprocess.check_output("conda env list --json".split()))[
+            "envs"
+        ]
+        if v not in [e.split("/")[-1] for e in envs]:
+            raise ValueError(f"{v} not in {envs}")
+        return v
 
 
 class Payload(BaseModel):
@@ -175,7 +184,7 @@ async def main(payload: Payload):
             changed=[
                 {"name": name, "version": new_version, "prior_version": before[name]}
                 for name, new_version in after.items()
-                if new_version != before[name]
+                if name in before and new_version != before[name]
             ],
         )
         log.debug(f"{payload.install.env = }; {diff = }")
