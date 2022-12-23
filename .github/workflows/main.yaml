@@ -20,12 +20,12 @@ jobs:
           miniforge-variant: Mambaforge
           miniforge-version: latest
           activate-environment: cloudrun
+          environment-file: ./ci/env.yaml
           use-mamba: true
       - name: install dependencies
         run: |
           mamba run -n cloudrun pip install -r ./src/requirements.txt
           mamba run -n cloudrun pip install -r dev-requirements.txt
-          mamba run -n cloudrun pip install "pangeo-forge-runner==0.7.1"
       - name: list conda env
         run: |
           conda info
