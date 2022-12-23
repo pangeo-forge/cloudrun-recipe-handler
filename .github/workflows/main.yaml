@@ -26,5 +26,6 @@ jobs:
           conda info
           conda list
       - name: run tests
+        run: |
           pytest src/tests
   
