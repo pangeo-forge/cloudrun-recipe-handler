@@ -108,7 +108,7 @@ class CondaDiff(BaseModel):
 
 
 class InstallResult(BaseModel):
-    diff: Optional[CondaDiff] = Field(
+    diff: CondaDiff = Field(
         None,
         description="""
         A record of changes made to the environment by the install request.
