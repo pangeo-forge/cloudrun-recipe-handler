@@ -5,7 +5,7 @@ import sys
 import tempfile
 from typing import List, Optional
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 
 app = FastAPI()
@@ -111,15 +111,7 @@ class InstallResult(BaseModel):
     diff: Optional[CondaDiff] = Field(
         None,
         description="""
-        A record of changes made to the environment by the install request. Optional
-        because the request may raise an error and not complete.
-        """,
-    )
-    stderr: Optional[str] = Field(
-        None,
-        description="""
-        If the call to `pip install` fails, this field relays the Traceback.
-        Optional because if the `pip install` succeeds, this is left empty.
+        A record of changes made to the environment by the install request.
         """,
     )
 
@@ -168,8 +160,10 @@ async def main(payload: Payload):
         if proc.returncode != 0:
             # our installations failed, so record the error and bail early
             log.error(f"Installs failed with {proc.stderr = }")
-            response["install_result"] = {"stderr": proc.stderr}
-            return response
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=proc.stderr,
+            )
         # our installations succeeded! so record the altered env and move on
         after = conda_list_json(payload.install.env)
         diff = dict(

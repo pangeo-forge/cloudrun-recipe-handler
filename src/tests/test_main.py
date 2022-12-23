@@ -8,6 +8,8 @@ from ..main import app
 client = TestClient(app)
 
 # note, if bumping this, you must do so in ./ci/env.yaml as well
+# NOTE: because tests alter environment in a pre-determined sequence,
+# they cannot be run individually or out-of-sequence.
 STARTING_VERSION = "pangeo-forge-runner==0.7.1"
 
 
@@ -65,14 +67,13 @@ def test_main(pkgs, expected_diff, expected_error):
         "install": {"pkgs": pkgs, "env": "cloudrun"},
     }
     response = client.post("/", json=request)
-    assert response.status_code == 202
-    assert response.json()["install_result"]["diff"] == expected_diff
 
     if expected_error:
-        assert expected_error in response.json()["install_result"]["stderr"]
-        assert response.json()["pangeo_forge_runner_result"] is None
+        assert response.status_code == 422
+        assert expected_error in response.json()["detail"]
     else:
-        assert response.json()["install_result"]["stderr"] is None
+        assert response.status_code == 202
+        assert response.json()["install_result"]["diff"] == expected_diff
         assert response.json()["pangeo_forge_runner_result"].startswith(
             "This is an application.\n\n"
         )
