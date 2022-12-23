@@ -151,18 +151,18 @@ async def main(payload: Payload):
     if payload.install:
         log.info("Extra installs requested...")
         before = conda_list_json(payload.install.env)
-        cmd = (
+        pip_cmd = (
             f"mamba run -n {payload.install.env} pip install -U".split()
             + payload.install.pkgs
         )
-        log.debug(f"Running {cmd = }")
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode != 0:
+        log.debug(f"Running {pip_cmd = }")
+        pip_proc = subprocess.run(pip_cmd, capture_output=True, text=True)
+        if pip_proc.returncode != 0:
             # our installations failed, so record the error and bail early
-            log.error(f"Installs failed with {proc.stderr = }")
+            log.error(f"Installs failed with {pip_proc.stderr = }")
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=proc.stderr,
+                detail=pip_proc.stderr,
             )
         # our installations succeeded! so record the altered env and move on
         after = conda_list_json(payload.install.env)
@@ -184,11 +184,18 @@ async def main(payload: Payload):
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(payload.pangeo_forge_runner.config, f)
         f.flush()
-        pangeo_forge_runner_result = subprocess.check_output(
+        runner_cmd = (
             ["pangeo-forge-runner"] + payload.pangeo_forge_runner.cmd + [f"-f={f.name}"]
         )
+        runner_proc = subprocess.run(runner_cmd, capture_output=True, text=True)
 
+    if runner_proc.returncode != 0:
+        log.error(f"Runner call failed with {runner_proc.stderr = }")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=runner_proc.stderr,
+        )
     log.info("Sending response...")
-    response |= {"pangeo_forge_runner_result": pangeo_forge_runner_result}
+    response |= {"pangeo_forge_runner_result": runner_proc.stdout}
     log.debug(f"{response = }")
     return response

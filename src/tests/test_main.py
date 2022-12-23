@@ -27,9 +27,10 @@ def setup_teardown():
 
 
 @pytest.mark.parametrize(
-    "pkgs,expected_diff,expected_error",
+    "cmd,pkgs,expected_diff,expected_error",
     [
         (
+            ["--help"],
             [STARTING_VERSION],
             # ./ci/env.yaml already has this version,
             # therefore passing it here should result in no diff
@@ -37,6 +38,13 @@ def setup_teardown():
             None,
         ),
         (
+            ["bake", "--unsupported-arg"],
+            [STARTING_VERSION],
+            {"added": [], "changed": []},
+            "error: unrecognized arguments: --unsupported-arg\n",
+        ),
+        (
+            ["--help"],
             ["pangeo-forge-runner==0.7.0"],
             # if we request a different version of pangeo-forge-runner from
             # the one which comes pre-installed in our env, then of course
@@ -54,6 +62,7 @@ def setup_teardown():
             None,
         ),
         (
+            ["--help"],
             ["pangeo-forge-runner==0.7.05"],
             # this version doesn't exist, so pip will throw an error
             None,
@@ -61,9 +70,9 @@ def setup_teardown():
         ),
     ],
 )
-def test_main(pkgs, expected_diff, expected_error):
+def test_main(cmd, pkgs, expected_diff, expected_error):
     request = {
-        "pangeo_forge_runner": {"cmd": ["--help"]},
+        "pangeo_forge_runner": {"cmd": cmd},
         "install": {"pkgs": pkgs, "env": "cloudrun"},
     }
     response = client.post("/", json=request)
