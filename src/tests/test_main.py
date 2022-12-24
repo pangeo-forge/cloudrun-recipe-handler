@@ -50,8 +50,10 @@ def add_pkg(default_cmd, default_pkgs, default_env):
     added_pkg = ["black==22.12.0"]
     expected_diff = {"added": [{"name": "black", "version": "22.12.0"}], "changed": []}
     # make sure that black will be the only pkg added under test
+    # so install it first (to capture its dependencies)
+    call_pip("install -U", default_pkgs + added_pkg)
+    # and then uninstall it (if we don't do this as two steps, the diff is non-deterministic.)
     call_pip("uninstall -y", added_pkg)
-    call_pip("install -U", default_pkgs)
     yield default_cmd, default_pkgs + added_pkg, default_env, expected_diff, None
 
 
