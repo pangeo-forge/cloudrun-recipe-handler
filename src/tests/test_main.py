@@ -97,14 +97,10 @@ def installation_error(default_cmd, default_env, no_install_diff):
     yield default_cmd, pkgs, default_env, no_install_diff, expected_error
 
 
-# @pytest.fixture
-# def nonexistent_env_error(default_cmd, no_install_diff):
-#    # this version doesn't exist on pypi, which is what we want for this test!
-#    pkgs = ["pangeo-forge-runner==0.7.05"]
-#    expected_error = (
-#        "ERROR: No matching distribution found for pangeo-forge-runner==0.7.05"
-#    )
-#    yield default_cmd, pkgs, no_install_diff, expected_error
+@pytest.fixture
+def nonexistent_env_error(default_cmd, default_pkgs, no_install_diff):
+    expected_error = "'nonexistent_env' is not a conda env name on this system"
+    yield default_cmd, default_pkgs, "nonexistent_env", no_install_diff, expected_error
 
 
 @pytest.fixture(
@@ -114,6 +110,7 @@ def installation_error(default_cmd, default_env, no_install_diff):
         lazy_fixture("runner_called_proc_error"),
         lazy_fixture("change_runner_version"),
         lazy_fixture("installation_error"),
+        lazy_fixture("nonexistent_env_error"),
     ]
 )
 def fixture(request):
@@ -130,7 +127,11 @@ def test_main(fixture):
 
     if expected_error:
         assert response.status_code == 422
-        assert expected_error in response.json()["detail"]
+        if "nonexistent_env" in expected_error:
+            assert expected_error in response.json()["detail"][0]["msg"]
+            assert response.json()["detail"][0]["type"] == "value_error"
+        else:
+            assert expected_error in response.json()["detail"]
     else:
         assert response.status_code == 202
         assert response.json()["install_result"]["diff"] == expected_diff
