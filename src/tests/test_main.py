@@ -8,8 +8,6 @@ from ..main import app
 
 client = TestClient(app)
 
-DEFAULT_RUNNER_VERSION = "pangeo-forge-runner==0.7.1"
-
 
 def call_pip(cmd, pkgs):
     proc = subprocess.run(f"mamba run -n cloudrun pip {cmd} {' '.join(pkgs)}".split())
@@ -17,49 +15,59 @@ def call_pip(cmd, pkgs):
 
 
 @pytest.fixture
-def no_install_no_error():
-    cmd = ["--help"]
-    pkgs = [DEFAULT_RUNNER_VERSION]
-    expected_diff = {"added": [], "changed": []}
-    expected_error = None
-
-    call_pip("install -U", pkgs)
-
-    yield cmd, pkgs, expected_diff, expected_error
+def default_runner_version():
+    return "pangeo-forge-runner==0.7.1"
 
 
 @pytest.fixture
-def add_pkg():
-    added_pkg = "black==22.12.0"
+def default_pkgs(default_runner_version):
+    return [default_runner_version]
 
-    cmd = ["--help"]
-    pkgs = [DEFAULT_RUNNER_VERSION, added_pkg]
+
+@pytest.fixture
+def default_cmd():
+    return ["--help"]
+
+
+@pytest.fixture
+def default_env():
+    return "cloudrun"
+
+
+@pytest.fixture
+def no_install_diff():
+    return {"added": [], "changed": []}
+
+
+@pytest.fixture
+def no_install_no_error(default_cmd, default_pkgs, default_env, no_install_diff):
+    call_pip("install -U", default_pkgs)
+    yield default_cmd, default_pkgs, default_env, no_install_diff, None
+
+
+@pytest.fixture
+def add_pkg(default_cmd, default_pkgs, default_env):
+    added_pkg = ["black==22.12.0"]
     expected_diff = {"added": [{"name": "black", "version": "22.12.0"}], "changed": []}
-    expected_error = None
-
     # make sure that black will be the only pkg added under test
-    call_pip("uninstall -y", [added_pkg])
-    call_pip("install -U", [DEFAULT_RUNNER_VERSION])
-
-    yield cmd, pkgs, expected_diff, expected_error
+    call_pip("uninstall -y", added_pkg)
+    call_pip("install -U", default_pkgs)
+    yield default_cmd, default_pkgs + added_pkg, default_env, expected_diff, None
 
 
 @pytest.fixture
-def runner_called_proc_error():
+def runner_called_proc_error(default_pkgs, default_env, no_install_diff):
     cmd = ["bake", "--unsupported-arg"]
-    pkgs = [DEFAULT_RUNNER_VERSION]
-    expected_diff = {"added": [], "changed": []}
     expected_error = "error: unrecognized arguments: --unsupported-arg\n"
+    call_pip("install -U", default_pkgs)
 
-    call_pip("install -U", pkgs)
-
-    yield cmd, pkgs, expected_diff, expected_error
+    yield cmd, default_pkgs, default_env, no_install_diff, expected_error
 
 
 @pytest.fixture
-def change_runner_version():
-    cmd = ["--help"]
+def change_runner_version(default_cmd, default_runner_version, default_env):
     pkgs = ["pangeo-forge-runner==0.7.0"]
+    assert pkgs[0] != default_runner_version
     # if we request a different version of pangeo-forge-runner from
     # the one which comes pre-installed in our env, then we expect
     # to see a diff reported by the service
@@ -69,29 +77,34 @@ def change_runner_version():
             {
                 "name": "pangeo-forge-runner",
                 "version": "0.7.0",
-                "prior_version": DEFAULT_RUNNER_VERSION.split("==")[-1],
+                "prior_version": default_runner_version.split("==")[-1],
             }
         ],
     }
-    expected_error = None
-
     # make sure default version is installed here, so that we can be sure the
     # changed version will be installed by the service under test
-    call_pip("install -U", [DEFAULT_RUNNER_VERSION])
-
-    yield cmd, pkgs, expected_diff, expected_error
+    call_pip("install -U", [default_runner_version])
+    yield default_cmd, pkgs, default_env, expected_diff, None
 
 
 @pytest.fixture
-def installation_error():
-    cmd = ["--help"]
+def installation_error(default_cmd, default_env, no_install_diff):
     # this version doesn't exist on pypi, which is what we want for this test!
     pkgs = ["pangeo-forge-runner==0.7.05"]
-    expected_diff = {"added": [], "changed": []}
     expected_error = (
         "ERROR: No matching distribution found for pangeo-forge-runner==0.7.05"
     )
-    yield cmd, pkgs, expected_diff, expected_error
+    yield default_cmd, pkgs, default_env, no_install_diff, expected_error
+
+
+# @pytest.fixture
+# def nonexistent_env_error(default_cmd, no_install_diff):
+#    # this version doesn't exist on pypi, which is what we want for this test!
+#    pkgs = ["pangeo-forge-runner==0.7.05"]
+#    expected_error = (
+#        "ERROR: No matching distribution found for pangeo-forge-runner==0.7.05"
+#    )
+#    yield default_cmd, pkgs, no_install_diff, expected_error
 
 
 @pytest.fixture(
@@ -108,10 +121,10 @@ def fixture(request):
 
 
 def test_main(fixture):
-    cmd, pkgs, expected_diff, expected_error = fixture
+    cmd, pkgs, env, expected_diff, expected_error = fixture
     request = {
         "pangeo_forge_runner": {"cmd": cmd},
-        "install": {"pkgs": pkgs, "env": "cloudrun"},
+        "install": {"pkgs": pkgs, "env": env},
     }
     response = client.post("/", json=request)
 

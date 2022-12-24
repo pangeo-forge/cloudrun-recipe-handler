@@ -55,11 +55,12 @@ class Install(BaseModel):
 
     @validator("env")
     def env_must_exist(cls, v):
-        envs = json.loads(subprocess.check_output("conda env list --json".split()))[
-            "envs"
-        ]
-        if v not in [e.split("/")[-1] for e in envs]:
-            raise ValueError(f"{v} not in {envs}")
+        conda_env_list = subprocess.check_output("conda env list --json".split())
+        envs = [e.split("/")[-1] for e in json.loads(conda_env_list)["envs"]]
+        if v not in envs:
+            raise ValueError(
+                f"'{v}' is not a conda env name on this system. Valid names: {envs}"
+            )
         return v
 
 
