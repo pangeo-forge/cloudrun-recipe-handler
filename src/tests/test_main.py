@@ -129,11 +129,7 @@ def test_main(fixture):
 
     if expected_error:
         assert response.status_code == 422
-        if "nonexistent_env" in expected_error:
-            assert expected_error in response.json()["detail"][0]["msg"]
-            assert response.json()["detail"][0]["type"] == "value_error"
-        else:
-            assert expected_error in response.json()["detail"]
+        assert expected_error in response.json()["detail"]
     else:
         assert response.status_code == 202
         assert response.json()["install_result"]["diff"] == expected_diff
