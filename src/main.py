@@ -32,7 +32,7 @@ class PangeoForgeRunner(BaseModel):
         JSON traitlets config for `pangeo-forge-runner`. See `pangeo-forge-runner`
         docs for spec. Fields given here can be alternatively be passed as CLI options,
         but separating `cmd` and `config` fields may provide a useful cognitive distinction:
-        the former typically vary more per-job than does the latter.
+        the former typically varies more per-job than does the latter.
         """,
     )
 
