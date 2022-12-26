@@ -128,22 +128,19 @@ class InstallResult(BaseModel):
 
 
 class Response(BaseModel):
+    pangeo_forge_runner_result: str = Field(
+        ...,
+        description="""
+        The result of the `pangeo-forge-runner` call as plain text, which the invoker
+        can parse as they please.
+        """,
+    )
     install_result: Optional[InstallResult] = Field(
         None,
         description="""
         If an `install` array is passed as part of the request Payload, the results
         of resolving those dependencies is relayed back to the invoker here. Optional
         because if no `install` array is given in the request, this is left empty.
-        """,
-    )
-    pangeo_forge_runner_result: Optional[str] = Field(
-        None,
-        description="""
-        The result of the `pangeo-forge-runner` call as plain text, which the invoker
-        can parse as they please. Optional because if an `install` array is given
-        in the request, and there is an error attempting to resolve those additional
-        dependencies, then we never make it to calling `pangeo-forge-runner`, and this
-        field would be left empty in the response.
         """,
     )
 
